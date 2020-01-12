@@ -3,26 +3,26 @@ declare(strict_types = 1);
 
 namespace CargoExpress\Models\Delivery;
 
-class DeliveryResponse
+class DeliveryResponseModel
 {
-    /** @var DeliveryContract контракт доставки */
+    /** @var DeliveryContractModel контракт доставки */
     protected $deliveryContract;
 
     /** @var string[] список ошибок */
     protected $errors = [];
 
     /**
-     * @return DeliveryContract
+     * @return DeliveryContractModel
      */
-    public function getDeliveryContract(): ?DeliveryContract
+    public function getDeliveryContract(): ?DeliveryContractModel
     {
         return $this->deliveryContract;
     }
 
     /**
-     * @param DeliveryContract $deliveryContract
+     * @param DeliveryContractModel $deliveryContract
      */
-    public function setDeliveryContract(DeliveryContract $deliveryContract)
+    public function setDeliveryContract(DeliveryContractModel $deliveryContract)
     {
         $this->deliveryContract = $deliveryContract;
     }

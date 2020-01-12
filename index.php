@@ -7,4 +7,3 @@ require __DIR__ . 'vendor/autoload.php';
 
 define('ROOT', __DIR__);
 
-(new Custodian\Kernel\Application)->run();

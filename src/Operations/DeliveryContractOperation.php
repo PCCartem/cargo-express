@@ -3,12 +3,14 @@ declare(strict_types=1);
 
 namespace CargoExpress\Operations;
 
-use CargoExpress\Models\Delivery\DeliveryContract;
-use CargoExpress\Models\Delivery\DeliveryRequest;
-use CargoExpress\Models\Delivery\DeliveryResponse;
+use CargoExpress\Models\Delivery\DeliveryContractModel;
+use CargoExpress\Models\Delivery\DeliveryRequestModel;
+use CargoExpress\Models\Delivery\DeliveryResponseModel;
 use CargoExpress\Repositories\DeliveryContractsRepository;
-use CargoExpress\Repositories\TransportModelsRepository;
+use CargoExpress\Repositories\PointRepository;
+use CargoExpress\Repositories\TransportRepository;
 use CargoExpress\Repositories\ClientsRepository;
+use Exception;
 
 /**
  * Class DeliveryContractOperation
@@ -16,69 +18,71 @@ use CargoExpress\Repositories\ClientsRepository;
  */
 class DeliveryContractOperation
 {
-    /**
-     * @var DeliveryContractsRepository
-     */
+    /** @var DeliveryContractsRepository */
     protected $contractsRepository;
 
-    /**
-     * @var ClientsRepository
-     */
+    /** @var ClientsRepository */
     protected $clientsRepository;
 
-    /**
-     * @var TransportModelsRepository
-     */
+    /** @var TransportRepository */
     protected $transportModelsRepository;
+
+    /** @var PointRepository */
+    protected $pointsModelsRepository;
 
     /**
      * DeliveryContractOperation constructor.
      *
      * @param DeliveryContractsRepository $contractsRepo
      * @param ClientsRepository $clientsRepo
-     * @param TransportModelsRepository $transportModelsRepo
+     * @param TransportRepository $transportModelsRepo
+     * @param PointRepository $pointsModelsRepo
      */
     public function __construct(
         DeliveryContractsRepository $contractsRepo,
         ClientsRepository $clientsRepo,
-        TransportModelsRepository $transportModelsRepo
+        TransportRepository $transportModelsRepo,
+        PointRepository $pointsModelsRepo
     ) {
         $this->contractsRepository = $contractsRepo;
         $this->clientsRepository = $clientsRepo;
         $this->transportModelsRepository = $transportModelsRepo;
+        $this->pointsModelsRepository = $pointsModelsRepo;
     }
 
     /**
-     * @param DeliveryRequest $request
-     * @return DeliveryResponse
+     * @param DeliveryRequestModel $request
+     * @return DeliveryResponseModel
+     * @throws Exception
      */
-    public function execute(DeliveryRequest $request): DeliveryResponse
+    public function execute(DeliveryRequestModel $request): DeliveryResponseModel
     {
-        $deliveryResponse = new DeliveryResponse();
+        $deliveryResponse = new DeliveryResponseModel();
 
-        if ($this->requestValidate($request) === false) {
-            $deliveryResponse->pushError('Извините Турбо Пушка занята 2020-01-01 10:00');
+        try {
+            if (count($this->contractsRepository->getForTransportModel($request->transportModelId,
+                    $request->startDate)) > 0) {
+                throw new Exception('Извините Турбо Пушка занята ' . $request->startDate);
+            }
+
+            // Создание контакта
+            $deliveryContract = new DeliveryContractModel(
+                $this->clientsRepository->getById($request->clientId),
+                $this->transportModelsRepository->getById($request->transportModelId),
+                $this->pointsModelsRepository->getById($request->pointModelId),
+                1,
+                $request->startDate
+            );
+
+            $deliveryResponse->setDeliveryContract($deliveryContract);
+
+            return $deliveryResponse;
+
+        } catch (Exception $exception) {
+            $deliveryResponse->pushError($exception->getMessage());
             return $deliveryResponse;
         }
 
-        $deliveryContract = new DeliveryContract($this->clientsRepository->getById($request->clientId),
-            $this->transportModelsRepository->getById($request->transportModelId), $request->startDate);
-        $deliveryContract->setPrice(5000);
-        $deliveryResponse->setDeliveryContract($deliveryContract);
 
-        return $deliveryResponse;
-    }
-
-    /**
-     * @param DeliveryRequest $request
-     * @return bool
-     */
-    protected function requestValidate(DeliveryRequest $request): bool
-    {
-        if (count($this->contractsRepository->getForTransportModel($request->transportModelId, $request->startDate)) > 0) {
-            return false;
-        }
-
-        return true;
     }
 }

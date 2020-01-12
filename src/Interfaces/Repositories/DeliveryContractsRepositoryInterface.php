@@ -1,9 +1,9 @@
 <?php
 declare(strict_types = 1);
 
-namespace CargoExpress\Interfaces;
+namespace CargoExpress\Interfaces\Repositories;
 
-use CargoExpress\Models\Delivery\DeliveryContract;
+use CargoExpress\Models\Delivery\DeliveryContractModel;
 
 interface DeliveryContractsRepositoryInterface
 {
@@ -12,7 +12,7 @@ interface DeliveryContractsRepositoryInterface
      *
      * @param int $transportModelId
      * @param string $date
-     * @return DeliveryContract[]
+     * @return DeliveryContractModel[]
      */
     public function getForTransportModel(int $transportModelId, string $date): array;
 }

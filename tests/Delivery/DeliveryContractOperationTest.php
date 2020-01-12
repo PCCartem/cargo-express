@@ -3,43 +3,62 @@ declare(strict_types = 1);
 
 namespace CargoExpress\Delivery;
 
-use CargoExpress\Models\Delivery\DeliveryContract;
-use CargoExpress\Models\Delivery\DeliveryRequest;
+use CargoExpress\Models\Delivery\DeliveryContractModel;
+use CargoExpress\Models\Delivery\DeliveryRequestModel;
+use CargoExpress\Models\PointModel;
 use CargoExpress\Operations\DeliveryContractOperation;
 use CargoExpress\Repositories\DeliveryContractsRepository;
-use CargoExpress\Repositories\TransportModelsRepository;
+use CargoExpress\Repositories\PointRepository;
+use CargoExpress\Repositories\TransportRepository;
 use CargoExpress\Repositories\ClientsRepository;
 use CargoExpress\Models\TransportModel;
 use CargoExpress\Models\ClientModel;
 use PHPUnit\Framework\TestCase;
+use Exception;
 
 class DeliveryContractOperationTest extends TestCase
 {
     /**
-     * Stub репозитория клиентов
-     *
-     * @param ClientModel[] ...$clients
+     * @param mixed ...$clients
      * @return ClientsRepository
+     * @throws Exception
      */
     private function makeFakeClientRepository(...$clients): ClientsRepository
     {
-        $clientsRepository = $this->prophesize(ClientsRepository::class);
+        /** @var ClientsRepository $clientsRepository */
+        $clientsRepository = new ClientsRepository();
         foreach ($clients as $client) {
-            $clientsRepository->getById($client->getId())->willReturn($client);
+            $clientsRepository->save($client);
         }
 
-        return $clientsRepository->reveal();
+        return $clientsRepository;
+    }
+
+    /**
+     * @param mixed ...$points
+     * @return PointRepository
+     * @throws Exception
+     */
+    private function makeFakePointRepository(...$points): PointRepository
+    {
+        /** @var PointRepository $pointsRepository */
+        $pointsRepository = new PointRepository();
+        foreach ($points as $point) {
+            $pointsRepository->save($point);
+        }
+
+        return $pointsRepository;
     }
 
     /**
      * Stub репозитория моделей транспорта
      *
      * @param TransportModel[] ...$transportModels
-     * @return TransportModelsRepository
+     * @return TransportRepository
      */
-    private function makeFakeTransportModelRepository(...$transportModels): TransportModelsRepository
+    private function makeFakeTransportModelRepository(...$transportModels): TransportRepository
     {
-        $transportModelsRepository = $this->prophesize(TransportModelsRepository::class);
+        $transportModelsRepository = $this->prophesize(TransportRepository::class);
         foreach ($transportModels as $transportModel) {
             $transportModelsRepository->getById($transportModel->getId())->willReturn($transportModel);
         }
@@ -60,13 +79,17 @@ class DeliveryContractOperationTest extends TestCase
             $clientRepo = $this->makeFakeClientRepository($client1, $client2);
 
             // Модель транспорта
-            $transportModel1 = new TransportModel(1, 'Турбо Пушка', 20);
+            $transportModel1 = new TransportModel(1, 'Турбо Пушка', 20, 20);
+
+            //Пункт доставки и репозиторий
+            $point1 = new PointModel(1, 'Нью-Йорк', 250);
+            $pointModelsRepository = $this->makeFakePointRepository($point1);
 
             $transportModelsRepo = $this->makeFakeTransportModelRepository($transportModel1);
 
             // Контракт доставки. 1й клиент арендовал транпорт 1
-            /** @var DeliveryContract $deliveryContract */
-            $deliveryContract = new DeliveryContract($client1, $transportModel1, '2020-01-01 00:00');
+            /** @var DeliveryContractModel $deliveryContract */
+            $deliveryContract = new DeliveryContractModel($client1, $transportModel1, $point1, 1, '2020-01-03 00:00');
 
             // Stub репозитория договоров
             /** @var DeliveryContractsRepository $contractsRepo */
@@ -76,11 +99,11 @@ class DeliveryContractOperationTest extends TestCase
                 ->willReturn([ $deliveryContract ]);
 
             // Запрос на новую доставку. 2й клиент выбрал время когда транспорт занят.
-            /** @var DeliveryRequest $deliveryRequest */
-            $deliveryRequest = new DeliveryRequest($client2->getId(), $transportModel1->getId(), '2020-01-01 10:00', 'Нью-Йорк');
+            /** @var DeliveryRequestModel $deliveryRequest */
+            $deliveryRequest = new DeliveryRequestModel($client2->getId(), $transportModel1->getId(), $point1->getId(), '2020-01-01 10:00', 'Нью-Йорк');
 
             // Операция заключения договора на доставку
-            $deliveryContractOperation = new DeliveryContractOperation($contractsRepo->reveal(), $clientRepo, $transportModelsRepo);
+            $deliveryContractOperation = new DeliveryContractOperation($contractsRepo->reveal(), $clientRepo, $transportModelsRepo, $pointModelsRepository);
         }
 
         // -- Act
@@ -105,19 +128,26 @@ class DeliveryContractOperationTest extends TestCase
             $clientRepo = $this->makeFakeClientRepository($client1);
 
             // Модель транспорта
-            $transportModel1    = new TransportModel(1, 'Турбо Пушка', 20);
+            $transportModel1    = new TransportModel(1, 'Турбо Пушка', 20, 20);
             $transportModelRepo = $this->makeFakeTransportModelRepository($transportModel1);
+
+            //Пункт доставки и репозиторий
+            $point1 = new PointModel(1, 'Нью-Йорк', 250);
+            $pointModelsRepository = $this->makeFakePointRepository($point1);
+
+            $tariffsRepo = $this->prophesize(Tari::class);
 
             $contractsRepo = $this->prophesize(DeliveryContractsRepository::class);
             $contractsRepo
-                ->getForTransportModel($transportModel1->getId(), '2020-01-01 17:30')
+                ->getForTransportModel($transportModel1->getId(), '2020-01-01 10:00')
                 ->willReturn([]);
 
             // Запрос на новую доставку
-            $deliveryRequest = new DeliveryRequest($client1->getId(), $transportModel1->getId(), '2020-01-01 17:30', 'Нью-Йорк');
+            $deliveryRequest = new DeliveryRequestModel($client1->getId(), $transportModel1->getId(), $point1->getId(), '2020-01-01 10:00', 'Нью-Йорк');
+
 
             // Операция заключения договора на доставку
-            $deliveryContractOperation = new DeliveryContractOperation($contractsRepo->reveal(), $clientRepo, $transportModelRepo);
+            $deliveryContractOperation = new DeliveryContractOperation($contractsRepo->reveal(), $clientRepo, $transportModelRepo, $pointModelsRepository);
         }
 
         // -- Act
@@ -125,7 +155,7 @@ class DeliveryContractOperationTest extends TestCase
 
         // -- Assert
         $this->assertEmpty($response->getErrors());
-        $this->assertInstanceOf(DeliveryContract::class, $response->getDeliveryContract());
+        $this->assertInstanceOf(DeliveryContractModel::class, $response->getDeliveryContract());
 
         $this->assertEquals(5000, $response->getDeliveryContract()->getPrice());
     }
