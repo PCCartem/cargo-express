@@ -32,8 +32,9 @@ interface PointRepositoryInterface
 
     /**
      * Возвращает все пункты доставки репозитория
-     *
-     * @return array
+     * 
+     * @param string $name
+     * @return PointModel
      */
-    public function getByName(): array;
+    public function getByName(string $name): PointModel;
 }
